@@ -2,9 +2,9 @@
 Contributors: bfintal, gambitph, freemius
 Tags: blocks, gutenberg, gutenberg blocks, page builder, WordPress blocks
 Requires at least: 6.4
-Tested up to: 6.7
+Tested up to: 6.7.1
 Requires PHP: 7.3
-Stable tag: 3.13.11
+Stable tag: 3.14.0
 License: GPLv3
 License URI: https://www.gnu.org/licenses/gpl-3.0.html
 
@@ -294,6 +294,28 @@ Nope. Stackable only works with Gutenberg, the new WordPress editor.
 == Upgrade Notice ==
 
 == Changelog ==
+
+= 3.14.0 =
+* New: Granular plugin settings - enhanced settings page for better control of plugin features #3354
+* New: Added option to use an empty alt tag in images #3376
+* Fixed: Image block - using small images no longer stretch #3239
+* Fixed: Image block - switching between % and px width now doesn't cause the image to be too small or too big #3268
+* Fixed: Dynamic Content - better compatibility with Blocksy Content Blocks #368
+* Fixed: EWWW Image Optimizer compatibility - no longer causes blurry images #3296
+
+= 3.13.13 =
+* New: Icon Library (Premium feature) - you can now upload custom SVGs and re-use them for the Icon Block! #361 #3317
+* Fixed: Text block: typing in the inspector will no longer escape html entities #3399
+* Fixed: Typing in the middle of an option in the inspector will no longer move the cursor to the end #3396
+* Fixed: Updated Freemius SDK to v2.11.0
+
+= 3.13.12 =
+* Fixed: Pasting text creates a new block instead of pasting on the current block #3371
+* Fixed: Pasting on icon list block makes a new block and loses cursor placement #3382
+* Fixed: Blocks inside a WooCommerce shop page can show css styles #3381
+* Fixed: Clearing the icon from the icon picker can make the icon blank #3348
+* Fixed: Sanitize titles for lightbox #3390
+* Fixed: Enhanced text sanitazion #3391
 
 = 3.13.11 =
 * Fixed: Icon Label block: Error when missing an Icon block #3368
