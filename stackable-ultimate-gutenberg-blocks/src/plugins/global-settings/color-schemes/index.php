@@ -28,6 +28,9 @@ if ( ! class_exists( 'Stackable_Global_Color_Schemes' ) ) {
   		function __construct() {
 			// Register our settings.
 			add_action( 'register_stackable_global_settings', array( $this, 'register_color_schemes' ) );
+
+			add_action( 'stackable_early_version_upgraded', array( $this, 'extend_color_scheme' ), 10, 2 );
+
 			if ( is_frontend() ) {
 
 				/**
@@ -191,6 +194,44 @@ if ( ! class_exists( 'Stackable_Global_Color_Schemes' ) ) {
 			return $_properties;
 		}
 
+		public function extend_color_scheme( $old_version, $new_version ) {
+			if ( empty( $old_version ) || version_compare( $old_version, "3.19.0", "<" ) ) {
+				$color_schemes = self::get_color_schemes_array();
+
+				$add_alternate_scheme = ! $color_schemes || ( is_array( $color_schemes ) && ! isset( $color_schemes['scheme-default-3'] ) && array_reduce( $color_schemes, function( $carry, $scheme ) {
+					return $carry && Stackable_Global_Color_Schemes::is_scheme_empty( $scheme ?? [] );
+				}, true ) );
+
+				if ( $add_alternate_scheme ) {
+					$updated_schemes = get_option( 'stackable_global_color_schemes', array() );
+
+					if ( ! is_array( $updated_schemes ) ) {
+						$updated_schemes = array();
+					}
+
+					$updated_schemes[] = array(
+						'name' => __( 'Alternate Scheme', STACKABLE_I18N ),
+						'key' => 'scheme-default-3',
+						'colorScheme' => array(
+							'backgroundColor' => array( 'desktop' => '#0f0e17' ),
+							'headingColor' => array( 'desktop' => '#fffffe' ),
+							'textColor' => array( 'desktop' => '#fffffe' ),
+							'linkColor' => array( 'desktop' => '#f00069' ),
+							'accentColor' => array( 'desktop' => '#f00069' ),
+							'buttonBackgroundColor' => array( 'desktop' => '#f00069' ),
+							'buttonTextColor' => array( 'desktop' => '#fffffe' ),
+							'buttonOutlineColor' => array( 'desktop' => '#fffffe' ),
+						),
+						'hideInPicker' => false
+					);
+
+					update_option( 'stackable_global_color_schemes', $updated_schemes );
+					delete_option( 'stackable_global_color_scheme_generated_css' );
+				}
+
+			}
+		}
+
 		/**-----------------------------------------------------------------------------
 		 * Global Color Scheme functions
 		 *-----------------------------------------------------------------------------*/
@@ -221,7 +262,9 @@ if ( ! class_exists( 'Stackable_Global_Color_Schemes' ) ) {
 			// If there is cached CSS, use it
 			if ( $cached_color_scheme_css ) {
 				// Add a body class if there are any global color schemes styles.
-				add_filter( 'body_class', array( $this, 'add_body_class_color_schemes' ) );
+				add_filter( 'body_class', function( $classes ) use ( $cached_color_scheme_css ) {
+					return $this->add_body_class_color_schemes( $classes, $cached_color_scheme_css );
+				} );
 				$current_css .= $cached_color_scheme_css;
 				return apply_filters( 'stackable_frontend_css' , $current_css );
 			}
@@ -298,8 +341,15 @@ if ( ! class_exists( 'Stackable_Global_Color_Schemes' ) ) {
 			}
 
 			// This fixes the issue wherein if there is a background scheme and no container/base scheme, the container inherits the background scheme which may cause the text to be unreadable
-			if ( isset( $this->color_schemes[ $container_default ] ) && $this::is_scheme_empty( $this->color_schemes[ $container_default ] ) ) {
-				$styles = $this->getDefaultContainerColors( $styles, $default_color_schemes[ 2 ] );
+			$add_default_container_colors = isset( $this->color_schemes[ $container_default ] ) && $this::is_scheme_empty( $this->color_schemes[ $container_default ] ) && (
+				// Add default container scheme if background scheme has value
+				( isset( $this->color_schemes[ $background_default ] ) && ! $this::is_scheme_empty( $this->color_schemes[ $background_default ] ) ) ||
+				// Add default container scheme if there are color schemes other than the default scheme and background scheme
+				count( $this->color_schemes ) > 2
+			);
+
+			if ( $add_default_container_colors ) {
+				$styles = $this->get_default_container_colors( $styles, $default_color_schemes[ 2 ] );
 			}
 
 			$color_scheme_css = '';
@@ -323,7 +373,9 @@ if ( ! class_exists( 'Stackable_Global_Color_Schemes' ) ) {
 
 			// Add a body class if there are any global color schemes styles.
 			if ( $color_scheme_css !== '' ) {
-				add_filter( 'body_class', array( $this, 'add_body_class_color_schemes' ) );
+				add_filter( 'body_class', function( $classes ) use ( $color_scheme_css ) {
+					return $this->add_body_class_color_schemes( $classes, $color_scheme_css );
+				}  );
 			}
 
 			// Add the generated CSS to the database
@@ -333,8 +385,24 @@ if ( ! class_exists( 'Stackable_Global_Color_Schemes' ) ) {
 			return apply_filters( 'stackable_frontend_css' , $current_css );
 		}
 
-		public function add_body_class_color_schemes( $classes ) {
-			$classes[] = 'stk-has-color-schemes';
+		public function add_body_class_color_schemes( $classes, $color_scheme_css ) {
+			if ( $color_scheme_css ) {
+				if ( strpos( $color_scheme_css, ':root' ) !== false ) {
+					$classes[] = 'stk--has-base-scheme';
+				}
+
+				if ( strpos( $color_scheme_css, '.stk-block-background' ) !== false ) {
+					$classes[] = 'stk--has-background-scheme';
+				}
+
+				if ( strpos( $color_scheme_css, '.stk-container:where(:not(.stk--no-background))' ) !== false ) {
+					$classes[] = 'stk--has-container-scheme';
+				}
+
+				if ( strpos( $color_scheme_css, '--stk-default-container-background-color' ) !== false ) {
+					$classes[] = 'stk--has-default-container-scheme';
+				}
+			}
 			return $classes;
 		}
 
@@ -451,7 +519,7 @@ if ( ! class_exists( 'Stackable_Global_Color_Schemes' ) ) {
 		}
 
 		// These colors are used when there are color schemes but the default container scheme is empty
-		public function getDefaultContainerColors( $styles, $scheme ) {
+		public function get_default_container_colors( $styles, $scheme ) {
 			$selectors = $scheme[ 'selectors' ];
 
 			$default_styles = array();
@@ -473,8 +541,8 @@ if ( ! class_exists( 'Stackable_Global_Color_Schemes' ) ) {
 
 			$default_styles = apply_filters( 'stackable.global-settings.global-color-schemes.default-container-scheme', $default_styles );
 
-			foreach ( $default_styles as $styles ) {
-				$styles[] = $default_styles;
+			foreach ( $default_styles as $default_style ) {
+				$styles[] = $default_style;
 			}
 
 

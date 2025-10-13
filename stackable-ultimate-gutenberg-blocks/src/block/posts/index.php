@@ -132,7 +132,7 @@ if ( ! function_exists( 'generate_render_item_from_stackable_posts_block' ) ) {
 
 		// Read More Link.
 		if ( strpos( $new_template, '!#readmoreText!#' ) !== false ) {
-			$new_template = str_replace( '!#readmoreText!#', esc_html( $readmore_text ), $new_template );
+			$new_template = str_replace( '!#readmoreText!#', wp_kses_post( $readmore_text ), $new_template );
 		}
 
 		return $new_template;
@@ -525,6 +525,12 @@ if ( ! class_exists( 'Stackable_Posts_Block' ) ) {
 		 */
 		public function get_posts( $request ) {
 			$args = $request->get_query_params();
+
+			// Enforce safe defaults to avoid exposing sensitive content.
+			// 1) Force post status to publish only (non-sensitive).
+			$args['post_status'] = 'publish';
+			// 2) Exclude password-protected content explicitly.
+			$args['has_password'] = false;
 
 			$query = new WP_Query( $args );
 
